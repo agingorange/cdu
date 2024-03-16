@@ -23,6 +23,10 @@ Line wrap the file at 100 chars.                                              Th
 
 ## [Unreleased]
 
+### Added
+- Add CHANGELOG and LICENSE to releases.
+- Add MIT License.
+
 ## [0.1.0] - 2024-03-16
 ### Added
 - Initial release.

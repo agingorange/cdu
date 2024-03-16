@@ -58,6 +58,6 @@ jobs:
           zip: windows
           # (optional) Comma-separated list of additional files to be included to archive.
           # Note that glob pattern is not supported yet.
-          include: README.md
+          include: README.md,CHANGELOG.md,MIT-LICENSE.md
           # (required) GitHub token for uploading assets to GitHub Releases.
           token: ${{ secrets.PAT }}
