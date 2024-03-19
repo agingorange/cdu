@@ -10,8 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Entries should have the imperative form, just like commit messages. Start each entry with words 
 like add, fix, increase, force etc.. Not added, fixed, increased, forced etc.
 
-Line wrap the file at 100 chars.                                              That is over here -> |
-
 ### Categories each change fall into
 
 * **Added**: for new features.
@@ -26,6 +24,9 @@ Line wrap the file at 100 chars.                                              Th
 ### Added
 - Add CHANGELOG and LICENSE to releases.
 - Add MIT License.
+
+### Changed
+- Bump crates
 
 ## [0.1.0] - 2024-03-16
 ### Added
