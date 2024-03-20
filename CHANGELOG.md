@@ -20,6 +20,8 @@ like add, fix, increase, force etc.. Not added, fixed, increased, forced etc.
 * **Security**: in case of vulnerabilities.
 
 ## [Unreleased]
+### Changed
+- Remove unused targets from Release workflow
 
 ## [0.1.1] - 2024-03-20
 ### Added
