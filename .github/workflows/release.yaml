@@ -7,7 +7,6 @@ on:
   push:
     tags:
       - v[0-9]+.*
-  workflow_dispatch:
 
 jobs:
   create-release:
@@ -17,7 +16,7 @@ jobs:
       - uses: taiki-e/create-gh-release-action@v1
         with:
           # (optional) Path to changelog.
-          # changelog: CHANGELOG.md
+          changelog: CHANGELOG.md
           # (required) GitHub token for creating GitHub Releases.
           token: ${{ secrets.PAT }}
 
@@ -25,39 +24,34 @@ jobs:
     needs: create-release
     strategy:
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
+        include:
+          # - target: aarch64-apple-darwin
+          #   os: macos-latest
+          # Universal macOS binary is supported as universal-apple-darwin.
+          - target: universal-apple-darwin
+            os: macos-latest
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-pc-windows-gnu
+            os: windows-latest
+          # Raspberry Pi 4
+          # - target: aarch64-unknown-linux-gnu
+          #   os: linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           # (required) Comma-separated list of binary names (non-extension portion of filename) to
-          # build and upload.
-          # Note that glob pattern is not supported yet.
+          # build and upload. Note that glob pattern is not supported yet.
           bin: cdu
-          # (optional) Archive name (non-extension portion of filename) to be uploaded.
-          # [default value: $bin-$target]
-          # [possible values: the following variables and any string]
-          #   variables:
-          #     - $bin    - Binary name (non-extension portion of filename).
-          #     - $target - Target triple.
-          #     - $tag    - Tag of this release.
-          # When multiple binary names are specified, default archive name or $bin variable cannot
-          # be used.
-          archive: $bin-$tag-$target
-          # (optional) On which platform to distribute the `.tar.gz` file.
-          # [default value: unix]
-          # [possible values: all, unix, windows, none]
-          tar: unix
-          # (optional) On which platform to distribute the `.zip` file.
-          # [default value: windows]
-          # [possible values: all, unix, windows, none]
-          zip: windows
           # (optional) Comma-separated list of additional files to be included to archive.
           # Note that glob pattern is not supported yet.
-          include: README.md,CHANGELOG.md,MIT-LICENSE.md
+          include: README.md,CHANGELOG.md
+          # (optional) Whether to create the leading directory in the archive or not. default to
+          # false.
+          leading-dir: true
+          # (optional) Target triple, default is host triple.
+          target: ${{ matrix.target }}
           # (required) GitHub token for uploading assets to GitHub Releases.
           token: ${{ secrets.PAT }}

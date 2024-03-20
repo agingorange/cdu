@@ -21,7 +21,9 @@ like add, fix, increase, force etc.. Not added, fixed, increased, forced etc.
 
 ## [Unreleased]
 
+## [0.1.1] - 2024-03-20
 ### Added
+- Use cross for cross-compilation in the Release workflow.
 - Add CHANGELOG and LICENSE to releases.
 - Add MIT License.
 
