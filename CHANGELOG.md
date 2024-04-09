@@ -20,8 +20,13 @@ like add, fix, increase, force etc.. Not added, fixed, increased, forced etc.
 * **Security**: in case of vulnerabilities.
 
 ## [Unreleased]
+
+## [0.1.2] - 2024-04-09
 ### Changed
 - Remove unused targets from Release workflow
+
+### Security
+- Bump dependencies because of h2 vulnerability
 
 ## [0.1.1] - 2024-03-20
 ### Added
