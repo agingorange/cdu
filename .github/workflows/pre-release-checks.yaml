@@ -1,0 +1,27 @@
+name: Pre-release checks
+# This workflow runs on branches with the pattern 'release/x.y.z' where x.y.z is the version number.
+# Note: The version number should not have a preceding 'v'.
+on:
+  push:
+    branches:
+      - "release/*"
+
+jobs:
+  check-changelog-and-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Check CHANGELOG.md for new version
+        run: |
+          VERSION=$(echo $GITHUB_REF | sed 's/refs\/heads\/release\///')
+          grep -q "$VERSION" CHANGELOG.md
+
+      - name: Check Cargo.toml for new version
+        run: |
+          VERSION=$(echo $GITHUB_REF | sed 's/refs\/heads\/release\///')
+          grep -q "version = \"$VERSION\"" Cargo.toml
+
+      - name: Ready for release
+        run: echo "All checks passed. You can now manually create a tag to trigger the release workflow."
