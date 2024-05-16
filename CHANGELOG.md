@@ -21,6 +21,8 @@ like add, fix, increase, force etc.. Not added, fixed, increased, forced etc.
 
 ## [Unreleased]
 
+## [0.1.3] - 2024-05-16
+
 ### Added
 
 - Add workflow to verify if new version number has been added to the change log and `Cargo.toml`.

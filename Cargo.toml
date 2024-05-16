@@ -1,6 +1,6 @@
 [package]
 name = "cdu"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "Updates the A record of a domain at Cloudflare with the current outside IP address."
 
