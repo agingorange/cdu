@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 const CONFIG_DIR_LOCAL: &str = ".";
 const CONFIG_DIR_DOCKER: &str = "/config";
@@ -64,6 +65,7 @@ impl Config {
     /// # Errors
     ///
     /// Returns an error if the file exists but cannot be read or parsed.
+    #[tracing::instrument(skip(self))]
     pub fn load(&mut self) -> anyhow::Result<()> {
         let config_path = self.save_dir.join(&self.file_name);
         let config_dir = config_path
@@ -81,14 +83,14 @@ impl Config {
                 .with_context(|| format!("Failed to read file: {config_path:?}"))?;
             let config: Self = toml::from_str(&file_content)
                 .with_context(|| format!("Failed to parse JSON from file: {config_path:?}"))?;
-            log::debug!("Loaded config from: {} ({})", config_path.display(), config);
+            debug!("Loaded config from: {} ({})", config_path.display(), config);
 
             self.outside_ip = config.outside_ip;
             self.cloudflare_ip = config.cloudflare_ip;
             self.last_updated = config.last_updated;
         } else {
             // If the file does not exist, do nothing and keep the current Config
-            log::debug!("Config file does not exist: {config_path:?}");
+            debug!("Config file does not exist: {config_path:?}");
         }
 
         Ok(())
@@ -99,6 +101,7 @@ impl Config {
     /// # Errors
     ///
     /// Returns an error if the file cannot be created or written to.
+    #[tracing::instrument(skip(self))]
     pub fn save(&self) -> anyhow::Result<()> {
         let config_path = self.save_dir.join(&self.file_name);
         let config_toml = toml::to_string_pretty(self)
@@ -112,12 +115,12 @@ impl Config {
             )
         })?;
 
-        log::debug!("config: {}", self);
+        debug!("config: {}", self);
 
         file.write_all(config_toml.as_bytes())
             .with_context(|| format!("Failed to write to file: {config_path:?}"))?;
 
-        log::debug!("Config saved to: {config_path:?}");
+        debug!("Config saved to: {config_path:?}");
 
         Ok(())
     }

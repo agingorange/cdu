@@ -1,8 +1,12 @@
 //! This Rust program is a command-line utility for updating the A record of a domain on Cloudflare
 //! to match the current outside IP address.
+use std::io;
+
 use anyhow::bail;
 use clap::{command, crate_description, crate_version, Arg, ArgAction, ArgMatches};
 use reqwest::blocking::Client as RqClient;
+use tracing::{debug, error, info};
+use tracing_subscriber::{fmt, EnvFilter, FmtSubscriber};
 
 use crate::config::Config;
 use crate::network::get_outside_ip;
@@ -12,6 +16,16 @@ mod config;
 mod network;
 
 fn main() {
+    let subscriber = FmtSubscriber::builder()
+        .fmt_fields(fmt::format::PrettyFields::new())
+        .event_format(fmt::format())
+        .without_time()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_writer(io::stderr)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
     match app() {
         Ok(()) => {}
         Err(e) => {
@@ -21,9 +35,8 @@ fn main() {
     }
 }
 
+#[tracing::instrument]
 fn app() -> anyhow::Result<()> {
-    env_logger::init();
-
     let arg_matches = parse_args();
     let api_key = arg_matches.get_one::<String>("api_key").unwrap();
     let zone_id = arg_matches.get_one::<String>("zone_id").unwrap();
@@ -31,12 +44,12 @@ fn app() -> anyhow::Result<()> {
     let dry_run = arg_matches.get_flag("dry_run");
 
     if dry_run {
-        log::debug!("Performing dry run");
+        debug!("Performing dry run");
     }
 
     let mut config = Config::default();
     if let Some(config_dir) = arg_matches.get_one::<String>("config_dir") {
-        log::debug!("Setting config directory to: {config_dir}");
+        debug!("Setting config directory to: {config_dir}");
         config.save_dir = config_dir.into();
     }
     config.load()?;
@@ -51,7 +64,7 @@ fn app() -> anyhow::Result<()> {
 
     if let Some(config_outside_ip) = config.outside_ip {
         if outside_ip == config_outside_ip {
-            log::info!("Outside IP has not changed. Nothing to do.");
+            info!("Outside IP has not changed. Nothing to do.");
 
             return Ok(());
         }
@@ -60,36 +73,36 @@ fn app() -> anyhow::Result<()> {
     // Save the outside IP to the configuration, so we can exit early next time if it hasn't changed
     config.outside_ip = Some(outside_ip);
     if let Err(e) = config.save() {
-        log::error!("Error: {e}");
+        error!("Error: {e}");
     } else {
-        log::info!("Config saved");
+        info!("Config saved");
     }
 
-    log::debug!("Processing domain: {}", domain);
-    log::debug!("Outside IP: {}", outside_ip);
+    debug!("Processing domain: {}", domain);
+    debug!("Outside IP: {}", outside_ip);
 
     let mut cloudflare_client = cloudflare::Handler::try_new(api_key, zone_id)?;
 
     // Get the A record
     let cloudflare_ip = cloudflare_client.get_a_record(domain)?;
 
-    log::debug!("Cloudflare IP: {cloudflare_ip}");
+    debug!("Cloudflare IP: {cloudflare_ip}");
 
     if outside_ip == cloudflare_ip {
-        log::info!("Cloudflare IP is already up to date");
+        info!("Cloudflare IP is already up to date");
     } else {
-        log::info!("Need to update Cloudflare IP");
+        info!("Need to update Cloudflare IP");
         if dry_run {
-            log::debug!("Dry run: Would update A record for {domain}: {outside_ip}");
+            debug!("Dry run: Would update A record for {domain}: {outside_ip}");
         } else {
             cloudflare_client.update_a_record(outside_ip)?;
-            log::info!("A record for {domain} updated with {outside_ip} at Cloudflare");
+            info!("A record for {domain} updated with {outside_ip} at Cloudflare");
             config.cloudflare_ip = Some(outside_ip);
 
             if let Err(e) = config.save() {
-                log::error!("Error: {e}");
+                error!("Error: {e}");
             } else {
-                log::info!("Config saved");
+                info!("Config saved");
             }
         }
     }

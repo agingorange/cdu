@@ -10,6 +10,7 @@ use reqwest::blocking::Client as RqClient;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tracing::{debug, error};
 
 const BASE_URL: &str = "https://api.cloudflare.com/client/v4/zones";
 
@@ -93,6 +94,7 @@ struct Response {
     result: Vec<DnsRecord>,
 }
 
+#[derive(Debug)]
 pub struct Handler {
     client: RqClient,
     headers: HeaderMap,
@@ -122,6 +124,7 @@ impl Handler {
     /// Retrieves the A record for the provided d domain name.
     /// # Errors
     /// Returns an error if the A record for the provided domain is not found.
+    #[tracing::instrument(skip(self))]
     pub fn get_a_record(&mut self, domain: &str) -> anyhow::Result<Ipv4Addr> {
         let response: Response = self
             .client
@@ -131,11 +134,11 @@ impl Handler {
             .json()?;
 
         for record in response.result {
-            log::debug!("Record: {record:#?}");
+            debug!("Record: {record:#?}");
             if let DnsContent::A { content } = record.content {
                 if record.name == domain {
                     self.dns_record = Some(record);
-                    log::debug!("Found A record for {domain}: {content}");
+                    debug!("Found A record for {domain}: {content}");
                     return Ok(content);
                 }
             }
@@ -148,11 +151,12 @@ impl Handler {
     ///
     /// # Errors
     /// Returns an error if there is no A record to update or if the update fails.
+    #[tracing::instrument(skip(self))]
     pub fn update_a_record(&self, new_ip: Ipv4Addr) -> anyhow::Result<()> {
-        log::debug!("Will update A record with: {new_ip}");
+        debug!("Will update A record with: {new_ip}");
         if let Some(record) = &self.dns_record {
             let url = format!("{BASE_URL}/{0}/dns_records/{1}", self.zone_id, record.id);
-            log::debug!("URL: {}", url);
+            debug!("URL: {}", url);
 
             let body = json!({
                 "type": "A",
@@ -173,11 +177,11 @@ impl Handler {
                 Ok(())
             } else {
                 let error_text = response.text()?;
-                log::error!("Failed to update A record: {error_text}");
+                error!("Failed to update A record: {error_text}");
                 anyhow::bail!("Failed to update A record: {error_text}");
             }
         } else {
-            log::error!("No DNS record to update");
+            error!("No DNS record to update");
             anyhow::bail!("No DNS record to update");
         }
     }
