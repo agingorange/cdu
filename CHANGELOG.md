@@ -30,6 +30,10 @@ like add, fix, increase, force etc.. Not added, fixed, increased, forced etc.
 
 - Fix incorrect environment variable names in README.
 
+### Removed
+
+- Remove unused crates.
+
 ## [0.1.2] - 2024-04-09
 
 ### Changed

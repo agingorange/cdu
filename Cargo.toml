@@ -7,13 +7,11 @@ description = "Updates the A record of a domain at Cloudflare with the current o
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
 chrono = { version = "0.4", features = ["serde"] }
-dns-lookup = "2"
+clap = { version = "4", features = ["cargo", "env"] }
 reqwest = { version = "^0", features = ["blocking", "json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
-config = "0.14"
-clap = { version = "4", features = ["cargo", "env"] }
 toml = "0.8"
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", features = ["ansi", "env-filter"] }
