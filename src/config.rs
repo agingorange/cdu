@@ -3,7 +3,7 @@ use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::net::Ipv4Addr;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Context;
 use chrono::{DateTime, Utc};
@@ -66,7 +66,16 @@ impl Config {
     /// Returns an error if the file exists but cannot be read or parsed.
     pub fn load(&mut self) -> anyhow::Result<()> {
         let config_path = self.save_dir.join(&self.file_name);
-        if Path::new(&config_path).exists() {
+        let config_dir = config_path
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get config directory: {config_path:?}"))?;
+
+        // Check if there are any issues with the config directory
+        config_dir.metadata().map_err(|e| {
+            anyhow::anyhow!("Problem with config directory: {config_dir:?}. Error: {e:?}")
+        })?;
+
+        if config_path.exists() {
             // If the file exists, proceed with loading
             let file_content = fs::read_to_string(&config_path)
                 .with_context(|| format!("Failed to read file: {config_path:?}"))?;

@@ -24,6 +24,10 @@ like add, fix, increase, force etc.. Not added, fixed, increased, forced etc.
 ### Added
 
 - Add workflow to verify if new version number has been added to the change log and `Cargo.toml`.
+- Add `--config-dir` flag to specify the directory for the configuration file.
+
+### Fixed
+
 - Fix incorrect environment variable names in README.
 
 ## [0.1.2] - 2024-04-09

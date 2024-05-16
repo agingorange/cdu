@@ -11,7 +11,17 @@ mod cloudflare;
 mod config;
 mod network;
 
-fn main() -> anyhow::Result<()> {
+fn main() {
+    match app() {
+        Ok(()) => {}
+        Err(e) => {
+            eprintln!("Error: {e}");
+            std::process::exit(1);
+        }
+    }
+}
+
+fn app() -> anyhow::Result<()> {
     env_logger::init();
 
     let arg_matches = parse_args();
@@ -25,6 +35,10 @@ fn main() -> anyhow::Result<()> {
     }
 
     let mut config = Config::default();
+    if let Some(config_dir) = arg_matches.get_one::<String>("config_dir") {
+        log::debug!("Setting config directory to: {config_dir}");
+        config.save_dir = config_dir.into();
+    }
     config.load()?;
 
     let client = RqClient::new();
@@ -34,11 +48,11 @@ fn main() -> anyhow::Result<()> {
             bail!("Error: {e}");
         }
     };
-    
+
     if let Some(config_outside_ip) = config.outside_ip {
         if outside_ip == config_outside_ip {
             log::info!("Outside IP has not changed. Nothing to do.");
-            
+
             return Ok(());
         }
     }
@@ -50,7 +64,7 @@ fn main() -> anyhow::Result<()> {
     } else {
         log::info!("Config saved");
     }
-    
+
     log::debug!("Processing domain: {}", domain);
     log::debug!("Outside IP: {}", outside_ip);
 
@@ -118,6 +132,13 @@ fn parse_args() -> ArgMatches {
                 .action(ArgAction::SetTrue)
                 .env("CDU_DRY_RUN")
                 .help("Do not update the A record"),
+        )
+        .arg(
+            Arg::new("config_dir")
+                .short('c')
+                .long("config-dir")
+                .env("CDU_CONFIG_DIR")
+                .help("Directory to save the configuration file in"),
         )
         .get_matches()
 }
