@@ -8,6 +8,7 @@ description = "Updates the A record of a domain at Cloudflare with the current o
 anyhow = { version = "1", features = ["backtrace"] }
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["cargo", "env"] }
+dotenvy = "0.15"
 reqwest = { version = "^0", features = ["blocking", "json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

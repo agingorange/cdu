@@ -21,6 +21,14 @@ like add, fix, increase, force etc.. Not added, fixed, increased, forced etc.
 
 ## [Unreleased]
 
+### Added
+
+- Send a message via a Discord webhook if the outside IP changes.
+
+### Changed
+
+- Use `serde_jason::Value` instead of Cloudlflare's exact structs to prevent having to update the structs if something unrelated changes.
+
 ## [0.1.3] - 2024-05-16
 
 ### Added

@@ -14,6 +14,7 @@ use crate::network::get_outside_ip;
 mod cloudflare;
 mod config;
 mod network;
+mod webhook;
 
 fn main() {
     let subscriber = FmtSubscriber::builder()
@@ -37,6 +38,8 @@ fn main() {
 
 #[tracing::instrument]
 fn app() -> anyhow::Result<()> {
+    dotenvy::dotenv()?;
+
     let arg_matches = parse_args();
     let api_key = arg_matches.get_one::<String>("api_key").unwrap();
     let zone_id = arg_matches.get_one::<String>("zone_id").unwrap();
@@ -48,11 +51,17 @@ fn app() -> anyhow::Result<()> {
     }
 
     let mut config = Config::default();
+    config.load()?;
+
     if let Some(config_dir) = arg_matches.get_one::<String>("config_dir") {
         debug!("Setting config directory to: {config_dir}");
         config.save_dir = config_dir.into();
     }
-    config.load()?;
+
+    if let Some(webhook_url) = arg_matches.get_one::<String>("webhook_url") {
+        debug!("Setting webhook URL to: {webhook_url}");
+        config.webhook_url = Some(webhook_url.into());
+    }
 
     let client = RqClient::new();
     let outside_ip = match get_outside_ip(&client, None) {
@@ -95,7 +104,7 @@ fn app() -> anyhow::Result<()> {
         if dry_run {
             debug!("Dry run: Would update A record for {domain}: {outside_ip}");
         } else {
-            cloudflare_client.update_a_record(outside_ip)?;
+            cloudflare_client.set_a_record(domain, outside_ip)?;
             info!("A record for {domain} updated with {outside_ip} at Cloudflare");
             config.cloudflare_ip = Some(outside_ip);
 
@@ -103,6 +112,15 @@ fn app() -> anyhow::Result<()> {
                 error!("Error: {e}");
             } else {
                 info!("Config saved");
+            }
+
+            if let Some(url) = &config.webhook_url {
+                if let Err(e) = webhook::send(
+                    url,
+                    &format!("Updated A record of {domain} to {outside_ip}"),
+                ) {
+                    error!("Error sending message to Discord webhook: {e}");
+                }
             }
         }
     }
@@ -152,6 +170,13 @@ fn parse_args() -> ArgMatches {
                 .long("config-dir")
                 .env("CDU_CONFIG_DIR")
                 .help("Directory to save the configuration file in"),
+        )
+        .arg(
+            Arg::new("webhook_url")
+                .short('w')
+                .long("webhook")
+                .env("CDU_WEBHOOK_URL")
+                .help("Webhook URL to use when the outside IP changes"),
         )
         .get_matches()
 }

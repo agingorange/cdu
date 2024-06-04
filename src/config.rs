@@ -21,6 +21,7 @@ pub struct Config {
     pub last_updated: DateTime<Utc>,
     pub save_dir: PathBuf,
     pub file_name: String,
+    pub webhook_url: Option<String>,
 }
 
 impl Default for Config {
@@ -37,6 +38,7 @@ impl Default for Config {
             last_updated: Utc::now(),
             save_dir: PathBuf::from(config_dir),
             file_name: String::from(CONFIG_FILE),
+            webhook_url: None,
         }
     }
 }
@@ -150,6 +152,7 @@ fn test_load() {
         last_updated = "2024-03-10T13:54:04.032435Z"
         save_dir = "/config"
         file_name = "cdu.toml"
+        webhook_url = "https://webhook.url"
     "#;
     fs::write(&file_path, file_content).unwrap();
     let result = config.load();
@@ -162,6 +165,7 @@ fn test_load() {
         last_updated = "2024-03-10T13:54:04.032435Z"
         save_dir = "/config"
         file_name = "cdu.toml"
+        webhook_url = "https://webhook.url"
     "#;
     fs::write(&file_path, file_content).unwrap();
     let result = config.load();

@@ -1,111 +1,26 @@
-#![allow(dead_code)]
+use std::net::Ipv4Addr;
 
-// Please note that ListDnsRecordsOrder, OrderDirection, and SearchMatch are enums that you
-// might need to adjust based on your specific requirements.
-use std::net::{Ipv4Addr, Ipv6Addr};
-
-use chrono::offset::Utc;
-use chrono::DateTime;
+use anyhow::anyhow;
+use anyhow::Context;
 use reqwest::blocking::Client as RqClient;
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
-use serde::{Deserialize, Serialize};
+use reqwest::header::HeaderMap;
+use reqwest::header::HeaderValue;
+use reqwest::header::AUTHORIZATION;
 use serde_json::json;
-use tracing::{debug, error};
+use serde_json::Value;
+use tracing::trace;
 
 const BASE_URL: &str = "https://api.cloudflare.com/client/v4/zones";
-
-#[derive(Debug)]
-pub struct ListDnsRecords<'a> {
-    pub zone_identifier: &'a str,
-    pub params: ListDnsRecordsParams,
-}
-
-#[derive(Serialize, Clone, Debug, Default)]
-pub struct ListDnsRecordsParams {
-    #[serde(flatten)]
-    pub record_type: Option<DnsContent>,
-    pub name: Option<String>,
-    pub page: Option<u32>,
-    pub per_page: Option<u32>,
-    pub order: Option<ListDnsRecordsOrder>,
-    pub direction: Option<OrderDirection>,
-    pub search_match: Option<SearchMatch>,
-}
-
-#[derive(Serialize, Clone, Debug)]
-#[serde(rename_all = "lowercase")]
-pub enum ListDnsRecordsOrder {
-    Type,
-    Name,
-    Content,
-    Ttl,
-    Proxied,
-}
-
-#[derive(Serialize, Clone, Debug)]
-pub enum OrderDirection {
-    Asc,
-    Desc,
-}
-
-#[derive(Serialize, Clone, Debug)]
-pub enum SearchMatch {
-    All,
-    Any,
-}
-
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Deserialize, Serialize, Clone, Debug)]
-#[serde(tag = "type")]
-pub enum DnsContent {
-    A { content: Ipv4Addr },
-    AAAA { content: Ipv6Addr },
-    CNAME { content: String },
-    NS { content: String },
-    MX { content: String, priority: u16 },
-    TXT { content: String },
-    SRV { content: String },
-}
-
-#[derive(Deserialize, Debug)]
-pub struct DnsRecord {
-    pub meta: Meta,
-    pub locked: bool,
-    pub name: String,
-    pub ttl: u32,
-    pub zone_id: String,
-    pub modified_on: DateTime<Utc>,
-    pub created_on: DateTime<Utc>,
-    pub proxiable: bool,
-    #[serde(flatten)]
-    pub content: DnsContent,
-    pub id: String,
-    pub proxied: bool,
-    pub zone_name: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Meta {
-    pub auto_added: bool,
-}
-
-#[derive(Deserialize)]
-struct Response {
-    result: Vec<DnsRecord>,
-}
 
 #[derive(Debug)]
 pub struct Handler {
     client: RqClient,
     headers: HeaderMap,
     zone_id: String,
-    dns_record: Option<DnsRecord>,
+    record_id: Option<String>,
 }
 
 impl Handler {
-    /// # Errors
-    /// Returns an error if the `api_key` contains invalid characters not allowed in an
-    /// HTTP header.
     pub fn try_new(api_key: &str, zone_id: &str) -> anyhow::Result<Self> {
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -117,72 +32,90 @@ impl Handler {
             client: RqClient::new(),
             headers,
             zone_id: zone_id.to_string(),
-            dns_record: None,
+            record_id: None,
         })
     }
 
-    /// Retrieves the A record for the provided d domain name.
-    /// # Errors
-    /// Returns an error if the A record for the provided domain is not found.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all)]
     pub fn get_a_record(&mut self, domain: &str) -> anyhow::Result<Ipv4Addr> {
-        let response: Response = self
-            .client
-            .get(format!("{}/{}/dns_records", BASE_URL, self.zone_id,))
-            .headers(self.headers.clone())
-            .send()?
-            .json()?;
+        let url = format!(
+            "{BASE_URL}/{}/dns_records?type=A&name={domain}",
+            self.zone_id
+        );
 
-        for record in response.result {
-            debug!("Record: {record:#?}");
-            if let DnsContent::A { content } = record.content {
-                if record.name == domain {
-                    self.dns_record = Some(record);
-                    debug!("Found A record for {domain}: {content}");
-                    return Ok(content);
+        let response = self
+            .client
+            .get(url)
+            .headers(self.headers.clone())
+            .send()
+            .context("Failed to send request to Cloudflare API")?
+            .text()
+            .context("Failed to read response text from Cloudflare API")?;
+        trace!("Response: {response}");
+
+        let v: Value = serde_json::from_str(&response)
+            .context("Failed to parse JSON response from Cloudflare API")?;
+
+        if let Some(errors) = v["errors"].as_array() {
+            if !errors.is_empty() {
+                let message = errors
+                    .first()
+                    .map(|e| e["message"].as_str().unwrap_or_default())
+                    .unwrap_or_default()
+                    .to_string();
+
+                anyhow::bail!("Cloudflare API error: {message}");
+            }
+        }
+
+        let records = v["result"]
+            .as_array()
+            .ok_or_else(|| anyhow!("No 'result' field found in JSON response"))?;
+
+        for record in records {
+            if let (Some(record_type), Some(record_name), Some(record_id), Some(content)) = (
+                record["type"].as_str(),
+                record["name"].as_str(),
+                record["id"].as_str(),
+                record["content"].as_str(),
+            ) {
+                if record_type == "A" && record_name == domain {
+                    self.record_id = Some(record_id.into());
+                    return content
+                        .parse::<Ipv4Addr>()
+                        .map_err(|e| anyhow!("Invalid IP address: {}", e));
                 }
             }
         }
 
-        anyhow::bail!("A record for {domain} not found")
+        Err(anyhow!("A record not found for domain: {}", domain))
     }
 
-    /// Updates A record with the provided IP address.
-    ///
-    /// # Errors
-    /// Returns an error if there is no A record to update or if the update fails.
-    #[tracing::instrument(skip(self))]
-    pub fn update_a_record(&self, new_ip: Ipv4Addr) -> anyhow::Result<()> {
-        debug!("Will update A record with: {new_ip}");
-        if let Some(record) = &self.dns_record {
-            let url = format!("{BASE_URL}/{0}/dns_records/{1}", self.zone_id, record.id);
-            debug!("URL: {}", url);
+    #[tracing::instrument(skip_all)]
+    pub fn set_a_record(&self, domain: &str, new_ip_v4_addr: Ipv4Addr) -> anyhow::Result<()> {
+        let Some(ref record_id) = self.record_id else {
+            anyhow::bail!("Missing record_id")
+        };
+        let url = format!("{}/{}/dns_records/{}", BASE_URL, self.zone_id, record_id);
 
-            let body = json!({
-                "type": "A",
-                "name": record.name,
-                "content": new_ip.to_string(),
-                "ttl": 120,
-                "proxied": false
-            });
+        let body = json!({
+            "type": "A",
+            "name": domain,
+            "content": new_ip_v4_addr.to_string(),
+        });
 
-            let response = self
-                .client
-                .put(url)
-                .headers(self.headers.clone())
-                .json(&body)
-                .send()?;
+        let response = self
+            .client
+            .put(url)
+            .headers(self.headers.clone())
+            .json(&body)
+            .send()?;
 
-            if response.status().is_success() {
-                Ok(())
-            } else {
-                let error_text = response.text()?;
-                error!("Failed to update A record: {error_text}");
-                anyhow::bail!("Failed to update A record: {error_text}");
-            }
+        if response.status().is_success() {
+            Ok(())
         } else {
-            error!("No DNS record to update");
-            anyhow::bail!("No DNS record to update");
+            let error_text = response.text()?;
+            anyhow::bail!("Failed to update A record: {error_text}");
         }
     }
 }
