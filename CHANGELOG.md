@@ -21,9 +21,12 @@ like add, fix, increase, force etc.. Not added, fixed, increased, forced etc.
 
 ## [Unreleased]
 
+## [0.1.4] - 2024-06-12
+
 ### Added
 
 - Send a message via a Discord webhook if the outside IP changes.
+- Use Dotenvy to load environment variables from a file.
 
 ### Changed
 
