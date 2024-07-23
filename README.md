@@ -48,7 +48,7 @@ things, it will save the last outside IP address that it saw, so that it can com
 current one and only contact Cloudflare if it's different. This is useful if you're running the
 program on a schedule, which is the most common use case.
 
-The program makes use of the crate [env_logger](https://crates.io/crates/env_logger) for logging, so
+The program makes use of the crate [tracing-subscriber](https://crates.io/crates/tracing-subscriber) for logging, so
 you can set the `RUST_LOG` environment variable to `debug` to see more detailed information about
 what the program is doing.
 
