@@ -31,6 +31,8 @@ like add, fix, increase, force etc.. Not added, fixed, increased, forced etc.
 ### Changed
 
 - Use `serde_jason::Value` instead of Cloudlflare's exact structs to prevent having to update the structs if something unrelated changes.
+- Explain how to use Tracing in README.
+- Update crates.
 
 ## [0.1.3] - 2024-05-16
 
